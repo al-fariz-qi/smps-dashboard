@@ -100,9 +100,9 @@
   const AUTO_EMAIL = "monitoringsmps@myproject.com";
   const AUTO_PASS = "smpspassword";
 
-  let lastLoggedTime = 0;
-  const CHART_INTERVAL_MS = 60000;
   let sensorListener = null;
+  const CHART_INTERVAL_MS = 60000;
+
   const labels = [], arusData = [], teganganData = [], dutyData = [];
 
   const chartCC = new Chart(document.getElementById('chartCC'), {
@@ -146,39 +146,38 @@
       document.getElementById('relayAllSwitch').checked = relayData.all === "ON";
     });
   }
-  
+
   function enableSensorListener() {
-    if (sensorListener) return; // hindari dobel timer
+    if (sensorListener) return;
     const db = firebase.database();
     sensorListener = setInterval(() => {
       db.ref("sensor").once("value").then(snapshot => {
         const data = snapshot.val();
         if (!data) return;
+
         updateCircle('ac_tegangan_circle', data.ac_tegangan, 'V');
         updateCircle('ac_arus_circle', data.ac_arus, 'A');
         updateCircle('dc_tegangan_circle', data.dc_tegangan, 'V');
         updateCircle('dc_arus_circle', data.dc_arus, 'A');
         document.getElementById('dutycycle-value').textContent = `Dutycycle: ${data.dutycycle}%`;
-        
+
         const now = new Date();
         const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
+
         const arus = parseFloat(data.dc_arus);
         const tegangan = parseFloat(data.dc_tegangan);
         const duty = parseFloat(data.dutycycle);
-        
+
         if (!isNaN(arus) && !isNaN(tegangan) && !isNaN(duty)) {
           addDataToCharts(timeLabel, arus, tegangan, duty);
-          console.log("Grafik diupdate:", timeLabel);
         }
       });
     }, CHART_INTERVAL_MS);
   }
 
-
   function disableSensorListener() {
     if (sensorListener) {
-      firebase.database().ref("sensor").off("value");
+      clearInterval(sensorListener);
       sensorListener = null;
     }
   }
