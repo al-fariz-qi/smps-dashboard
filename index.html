@@ -70,18 +70,9 @@
       </div>
     </div>
 
-    <div class="mb-5">
-      <h4>Grafik Arus (CC)</h4>
-      <canvas id="chartCC"></canvas>
-    </div>
-    <div class="mb-5">
-      <h4>Grafik Tegangan (CV)</h4>
-      <canvas id="chartCV"></canvas>
-    </div>
-    <div class="mb-5">
-      <h4>Grafik Dutycycle</h4>
-      <canvas id="chartDuty"></canvas>
-    </div>
+    <div class="mb-5"><h4>Grafik Arus (CC)</h4><canvas id="chartCC"></canvas></div>
+    <div class="mb-5"><h4>Grafik Tegangan (CV)</h4><canvas id="chartCV"></canvas></div>
+    <div class="mb-5"><h4>Grafik Dutycycle</h4><canvas id="chartDuty"></canvas></div>
   </div>
 </div>
 
@@ -101,6 +92,7 @@
   const AUTO_PASS = "smpspassword";
 
   let sensorListener = null;
+  let graphInterval = null;
   const CHART_INTERVAL_MS = 60000;
 
   const labels = [], arusData = [], teganganData = [], dutyData = [];
@@ -131,9 +123,7 @@
     db.ref("sistem/status").on("value", snap => {
       const status = snap.val();
       const indicator = document.getElementById("statusIndicator");
-      if (indicator) {
-        indicator.style.backgroundColor = status === "ON" ? "lime" : "red";
-      }
+      if (indicator) indicator.style.backgroundColor = status === "ON" ? "lime" : "red";
       if (status === "ON") enableSensorListener();
       else disableSensorListener();
     });
@@ -148,37 +138,51 @@
   }
 
   function enableSensorListener() {
-    if (sensorListener) return;
     const db = firebase.database();
-    sensorListener = setInterval(() => {
-      db.ref("sensor").once("value").then(snapshot => {
+
+    // Realtime listener untuk data lingkaran
+    if (!sensorListener) {
+      sensorListener = db.ref("sensor").on("value", snapshot => {
         const data = snapshot.val();
         if (!data) return;
-
         updateCircle('ac_tegangan_circle', data.ac_tegangan, 'V');
         updateCircle('ac_arus_circle', data.ac_arus, 'A');
         updateCircle('dc_tegangan_circle', data.dc_tegangan, 'V');
         updateCircle('dc_arus_circle', data.dc_arus, 'A');
         document.getElementById('dutycycle-value').textContent = `Dutycycle: ${data.dutycycle}%`;
-
-        const now = new Date();
-        const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        const arus = parseFloat(data.dc_arus);
-        const tegangan = parseFloat(data.dc_tegangan);
-        const duty = parseFloat(data.dutycycle);
-
-        if (!isNaN(arus) && !isNaN(tegangan) && !isNaN(duty)) {
-          addDataToCharts(timeLabel, arus, tegangan, duty);
-        }
       });
-    }, CHART_INTERVAL_MS);
+    }
+
+    // Interval grafik 1 menit
+    if (!graphInterval) {
+      graphInterval = setInterval(() => {
+        db.ref("sensor").once("value").then(snapshot => {
+          const data = snapshot.val();
+          if (!data) return;
+
+          const now = new Date();
+          const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+          const arus = parseFloat(data.dc_arus);
+          const tegangan = parseFloat(data.dc_tegangan);
+          const duty = parseFloat(data.dutycycle);
+
+          if (!isNaN(arus) && !isNaN(tegangan) && !isNaN(duty)) {
+            addDataToCharts(timeLabel, arus, tegangan, duty);
+          }
+        });
+      }, CHART_INTERVAL_MS);
+    }
   }
 
   function disableSensorListener() {
     if (sensorListener) {
-      clearInterval(sensorListener);
+      firebase.database().ref("sensor").off("value");
       sensorListener = null;
+    }
+    if (graphInterval) {
+      clearInterval(graphInterval);
+      graphInterval = null;
     }
   }
 
@@ -224,7 +228,7 @@
     const chart1 = chartCC.toBase64Image().replace(/^data:image\/png;base64,/, "");
     const chart2 = chartCV.toBase64Image().replace(/^data:image\/png;base64,/, "");
     const chart3 = chartDuty.toBase64Image().replace(/^data:image\/png;base64,/, "");
-    const endpoint = "https://script.google.com/macros/s/AKfycbxCyJTIH0sAEoWxU5_7p9eurAXHptDx9msJvhLOuOybWiqQLbng29yl3LDyilChiOwCzA/exec";
+    const endpoint = "https://script.google.com/macros/s/AKfycbyvzDMIm8AdFWQk31SejL70JiAhEz-UA6yMnyxFvESTEFSvC8pSzPUfHLvTHUeIHo0iog/exec";
 
     const upload = (data) => {
       fetch(endpoint, {
