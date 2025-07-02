@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitoring SMPS</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    .section { margin-bottom: 40px; }
+    button { margin: 5px; padding: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Monitoring dan Kontrol SMPS</h1>
+  
+  <div class="section">
+    <h2>Data Sensor Realtime</h2>
+    <p>AC Tegangan: <span id="ac_tegangan"></span> V</p>
+    <p>AC Arus: <span id="ac_arus"></span> A</p>
+    <p>DC Tegangan: <span id="dc_tegangan"></span> V</p>
+    <p>DC Arus: <span id="dc_arus"></span> A</p>
+    <p>Dutycycle: <span id="dutycycle"></span> %</p>
+  </div>
+
+  <div class="section">
+    <h2>Kontrol Relay</h2>
+    <button onclick="setRelay('relay1', 'ON')">Relay 1 ON</button>
+    <button onclick="setRelay('relay1', 'OFF')">Relay 1 OFF</button>
+    <button onclick="setRelay('relay2', 'ON')">Relay 2 ON</button>
+    <button onclick="setRelay('relay2', 'OFF')">Relay 2 OFF</button>
+    <button onclick="setRelay('all', 'ON')">Semua Relay ON</button>
+    <button onclick="setRelay('all', 'OFF')">Semua Relay OFF</button>
+  </div>
+
+  <div class="section">
+    <h2>Grafik Arus vs Waktu (CC)</h2>
+    <canvas id="chartCC"></canvas>
+  </div>
+
+  <div class="section">
+    <h2>Grafik Tegangan vs Waktu (CV)</h2>
+    <canvas id="chartCV"></canvas>
+  </div>
+
+  <div class="section">
+    <h2>Gabungan Arus & Tegangan vs Waktu</h2>
+    <canvas id="chartGabungan"></canvas>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "monitoring-kontrol-smps.firebaseapp.com",
+      databaseURL: "https://monitoring-kontrol-smps-default-rtdb.firebaseio.com",
+      projectId: "monitoring-kontrol-smps",
+      storageBucket: "monitoring-kontrol-smps.appspot.com",
+      messagingSenderId: "SENDER_ID",
+      appId: "APP_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const sensorRef = db.ref('sensor');
+    sensorRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+      document.getElementById('ac_tegangan').textContent = data.ac_tegangan;
+      document.getElementById('ac_arus').textContent = data.ac_arus;
+      document.getElementById('dc_tegangan').textContent = data.dc_tegangan;
+      document.getElementById('dc_arus').textContent = data.dc_arus;
+      document.getElementById('dutycycle').textContent = data.dutycycle;
+
+      addDataToCharts(new Date().toLocaleTimeString(), data.dc_arus, data.dc_tegangan);
+    });
+
+    function setRelay(relay, value) {
+      firebase.database().ref('relay/' + relay).set(value);
+    }
+
+    // Chart Setup
+    const labels = [];
+    const arusData = [];
+    const teganganData = [];
+
+    const chartCC = new Chart(document.getElementById('chartCC'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'DC Arus (A)',
+          data: arusData,
+          borderColor: 'blue',
+          fill: false
+        }]
+      },
+    });
+
+    const chartCV = new Chart(document.getElementById('chartCV'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'DC Tegangan (V)',
+          data: teganganData,
+          borderColor: 'green',
+          fill: false
+        }]
+      },
+    });
+
+    const chartGabungan = new Chart(document.getElementById('chartGabungan'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'DC Arus (A)',
+            data: arusData,
+            borderColor: 'blue',
+            fill: false
+          },
+          {
+            label: 'DC Tegangan (V)',
+            data: teganganData,
+            borderColor: 'green',
+            fill: false
+          }
+        ]
+      },
+    });
+
+    function addDataToCharts(label, arus, tegangan) {
+      if (labels.length > 30) {
+        labels.shift();
+        arusData.shift();
+        teganganData.shift();
+      }
+      labels.push(label);
+      arusData.push(arus);
+      teganganData.push(tegangan);
+      chartCC.update();
+      chartCV.update();
+      chartGabungan.update();
+    }
+  </script>
+</body>
+</html>
