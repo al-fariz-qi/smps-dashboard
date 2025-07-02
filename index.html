@@ -26,11 +26,24 @@
     }
     canvas { width: 100%; max-height: 300px; background-color: #fff; border-radius: 10px; }
     .form-check-input:checked { background-color: #00c851; border-color: #00c851; }
+    #menuButton { cursor: pointer; font-size: 24px; margin-bottom: 10px; }
+    #sideMenu { display: none; background: #2b2b3c; border-radius: 10px; padding: 10px; position: absolute; top: 50px; left: 10px; z-index: 999; }
+    #sideMenu a { display: block; color: #fff; margin: 5px 0; text-decoration: none; }
+    #sideMenu a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
 <div class="container py-4">
-  <h1 class="text-center mb-4">Monitoring dan Kontrol SMPS</h1>
+  <div class="d-flex justify-content-between align-items-center">
+    <div id="menuButton" onclick="toggleMenu()">&#9776;</div>
+    <h1 class="text-center flex-grow-1">Monitoring dan Kontrol SMPS</h1>
+  </div>
+  <div id="sideMenu">
+    <a href="#" onclick="toggleDarkMode()">Toggle Dark/Light Mode</a>
+    <a href="#" onclick="uploadChartImages()">Simpan Grafik ke Google Drive</a>
+    <a href="https://drive.google.com/drive/folders/YOUR_FOLDER_ID" target="_blank">Lihat Histori Grafik</a>
+    <a href="#" onclick="logout()">Logout</a>
+  </div>
 
   <!-- Login Section -->
   <div id="loginSection" class="text-center mb-5">
@@ -106,26 +119,21 @@
   firebase.initializeApp(firebaseConfig);
 
   let lastLoggedMinute = -1;
-
-  const labels = [];
-  const arusData = [], teganganData = [], dutyData = [];
+  const labels = [], arusData = [], teganganData = [], dutyData = [];
 
   const chartCC = new Chart(document.getElementById('chartCC'), {
     type: 'line',
-    data: { labels: labels, datasets: [{ label: 'DC Arus (A)', data: arusData, borderColor: '#007bff', fill: false }] },
-    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { zoom: { pan: { enabled: true, mode: 'x' }}} }
+    data: { labels: labels, datasets: [{ label: 'DC Arus (A)', data: arusData, borderColor: '#007bff', fill: false }] }
   });
 
   const chartCV = new Chart(document.getElementById('chartCV'), {
     type: 'line',
-    data: { labels: labels, datasets: [{ label: 'DC Tegangan (V)', data: teganganData, borderColor: '#28a745', fill: false }] },
-    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { zoom: { pan: { enabled: true, mode: 'x' }}} }
+    data: { labels: labels, datasets: [{ label: 'DC Tegangan (V)', data: teganganData, borderColor: '#28a745', fill: false }] }
   });
 
   const chartDuty = new Chart(document.getElementById('chartDuty'), {
     type: 'line',
-    data: { labels: labels, datasets: [{ label: 'Dutycycle (%)', data: dutyData, borderColor: '#ffc107', fill: false }] },
-    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { zoom: { pan: { enabled: true, mode: 'x' }}} }
+    data: { labels: labels, datasets: [{ label: 'Dutycycle (%)', data: dutyData, borderColor: '#ffc107', fill: false }] }
   });
 
   function addDataToCharts(label, arus, tegangan, duty) {
@@ -133,9 +141,7 @@
     arusData.push(arus);
     teganganData.push(tegangan);
     dutyData.push(duty);
-    chartCC.update();
-    chartCV.update();
-    chartDuty.update();
+    chartCC.update(); chartCV.update(); chartDuty.update();
   }
 
   function updateCircle(id, value, unit) {
@@ -147,27 +153,39 @@
     const password = document.getElementById("password").value;
     firebase.auth().signInWithEmailAndPassword(email, password)
       .then(() => {
-        document.getElementById("loginSection").style.display = 'none';
-        document.getElementById("dashboard").style.display = 'block';
-        const db = firebase.database();
-        db.ref('sensor').on('value', (snapshot) => {
-          const data = snapshot.val();
-          updateCircle('ac_tegangan_circle', data.ac_tegangan, 'V');
-          updateCircle('ac_arus_circle', data.ac_arus, 'A');
-          updateCircle('dc_tegangan_circle', data.dc_tegangan, 'V');
-          updateCircle('dc_arus_circle', data.dc_arus, 'A');
-          document.getElementById('dutycycle-value').textContent = `Dutycycle: ${data.dutycycle}%`;
-
-          const now = new Date();
-          const currentMinute = now.getMinutes();
-          if (currentMinute !== lastLoggedMinute) {
-            lastLoggedMinute = currentMinute;
-            const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            addDataToCharts(timeLabel, data.dc_arus, data.dc_tegangan, data.dutycycle);
-          }
-        });
+        localStorage.setItem('isLoggedIn', 'true');
+        showDashboard();
       })
       .catch(e => alert("Login gagal: " + e.message));
+  }
+
+  function logout() {
+    firebase.auth().signOut().then(() => {
+      localStorage.removeItem('isLoggedIn');
+      location.reload();
+    });
+  }
+
+  function showDashboard() {
+    document.getElementById("loginSection").style.display = 'none';
+    document.getElementById("dashboard").style.display = 'block';
+    const db = firebase.database();
+    db.ref('sensor').on('value', (snapshot) => {
+      const data = snapshot.val();
+      updateCircle('ac_tegangan_circle', data.ac_tegangan, 'V');
+      updateCircle('ac_arus_circle', data.ac_arus, 'A');
+      updateCircle('dc_tegangan_circle', data.dc_tegangan, 'V');
+      updateCircle('dc_arus_circle', data.dc_arus, 'A');
+      document.getElementById('dutycycle-value').textContent = `Dutycycle: ${data.dutycycle}%`;
+
+      const now = new Date();
+      const currentMinute = now.getMinutes();
+      if (currentMinute !== lastLoggedMinute) {
+        lastLoggedMinute = currentMinute;
+        const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        addDataToCharts(timeLabel, data.dc_arus, data.dc_tegangan, data.dutycycle);
+      }
+    });
   }
 
   function handleSwitch(relay) {
@@ -183,6 +201,28 @@
     firebase.database().ref('relay/relay2').set("OFF");
     document.getElementById('relay1Switch').checked = false;
     document.getElementById('relay2Switch').checked = false;
+  }
+
+  function toggleMenu() {
+    const menu = document.getElementById('sideMenu');
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+  }
+
+  function toggleDarkMode() {
+    document.body.classList.toggle('bg-light');
+    document.body.classList.toggle('text-dark');
+  }
+
+  function uploadChartImages() {
+    alert("(Simulasi) Menyimpan grafik ke Google Drive...");
+    // Implementasi upload ke Google Drive API di tahap lanjutan
+  }
+
+  // Auto-login jika sebelumnya sudah login
+  if (localStorage.getItem('isLoggedIn') === 'true') {
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) showDashboard();
+    });
   }
 </script>
 </body>
