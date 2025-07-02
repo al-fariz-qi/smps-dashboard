@@ -183,12 +183,21 @@
       document.getElementById('dutycycle-value').textContent = `Dutycycle: ${data.dutycycle}%`;
 
       const now = new Date();
-      const currentMinute = now.getMinutes();
-      if (currentMinute !== lastLoggedMinute) {
-        lastLoggedMinute = currentMinute;
+      const nowMillis = now.getTime();
+
+      const CHART_INTERVAL_MS = 1 * 60 * 1000; // 1 menit
+      if (!window.lastChartLogTime || nowMillis - window.lastChartLogTime > CHART_INTERVAL_MS) { // 60 detik
+        window.lastChartLogTime = nowMillis;
         const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        addDataToCharts(timeLabel, data.dc_arus, data.dc_tegangan, data.dutycycle);
-      }
+        
+        // Pastikan data numerik valid
+        const arus = parseFloat(data.dc_arus);
+        const tegangan = parseFloat(data.dc_tegangan);
+        const duty = parseFloat(data.dutycycle);
+        
+        if (!isNaN(arus) && !isNaN(tegangan) && !isNaN(duty)) {
+          addDataToCharts(timeLabel, arus, tegangan, duty);
+        }
     });
   }
 
