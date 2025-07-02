@@ -26,7 +26,7 @@
     }
     canvas { width: 100%; max-height: 300px; background-color: #fff; border-radius: 10px; }
     .form-check-input:checked { background-color: #00c851; border-color: #00c851; }
-    #menuButton { cursor: pointer; font-size: 24px; margin-bottom: 10px; }
+    #menuButton { cursor: pointer; font-size: 24px; margin-bottom: 10px; display: none; }
     #sideMenu { display: none; background: #2b2b3c; border-radius: 10px; padding: 10px; position: absolute; top: 50px; left: 10px; z-index: 999; }
     #sideMenu a { display: block; color: #fff; margin: 5px 0; text-decoration: none; }
     #sideMenu a:hover { text-decoration: underline; }
@@ -107,6 +107,7 @@
 </div>
 
 <script>
+  // Konfigurasi firebase tetap, login & showDashboard ditampilkan di bawah
   const firebaseConfig = {
     apiKey: "AIzaSyAQ_U3em2Dw4HhWe0P8bcSN0NV8qT7U5w4",
     authDomain: "monitoring-kontrol-smps.firebaseapp.com",
@@ -162,6 +163,7 @@
   function logout() {
     firebase.auth().signOut().then(() => {
       localStorage.removeItem('isLoggedIn');
+      document.getElementById("menuButton").style.display = 'none';
       location.reload();
     });
   }
@@ -169,6 +171,8 @@
   function showDashboard() {
     document.getElementById("loginSection").style.display = 'none';
     document.getElementById("dashboard").style.display = 'block';
+    document.getElementById("menuButton").style.display = 'block';
+
     const db = firebase.database();
     db.ref('sensor').on('value', (snapshot) => {
       const data = snapshot.val();
@@ -214,35 +218,28 @@
   }
 
   function uploadChartImages() {
-    alert("(Simulasi) Menyimpan grafik ke Google Drive...");
-    // Implementasi upload ke Google Drive API di tahap lanjutan
+    const chart1 = chartCC.toBase64Image().replace(/^data:image\/png;base64,/, "");
+    const chart2 = chartCV.toBase64Image().replace(/^data:image\/png;base64,/, "");
+    const chart3 = chartDuty.toBase64Image().replace(/^data:image\/png;base64,/, "");
+
+    const endpoint = "https://script.google.com/macros/s/AKfycbxCyJTIH0sAEoWxU5_7p9eurAXHptDx9msJvhLOuOybWiqQLbng29yl3LDyilChiOwCzA/exec";
+
+    const upload = (data) => {
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "image/png" },
+        body: data,
+      })
+      .then(res => res.text())
+      .then(txt => alert("Upload sukses: " + txt))
+      .catch(err => alert("Gagal upload: " + err));
+    };
+
+    upload(chart1);
+    upload(chart2);
+    upload(chart3);
   }
 
-  function uploadChartImages() {
-  const chart1 = chartCC.toBase64Image().replace(/^data:image\/png;base64,/, "");
-  const chart2 = chartCV.toBase64Image().replace(/^data:image\/png;base64,/, "");
-  const chart3 = chartDuty.toBase64Image().replace(/^data:image\/png;base64,/, "");
-
-  const endpoint = "https://script.google.com/macros/s/AKfycbxCyJTIH0sAEoWxU5_7p9eurAXHptDx9msJvhLOuOybWiqQLbng29yl3LDyilChiOwCzA/exec"; // Ganti dengan URL Web App kamu
-
-  const upload = (data) => {
-    fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "image/png" },
-      body: data,
-    })
-    .then(res => res.text())
-    .then(txt => alert("Upload sukses: " + txt))
-    .catch(err => alert("Gagal upload: " + err));
-  };
-
-  upload(chart1); // Upload chart CC
-  upload(chart2); // Upload chart CV
-  upload(chart3); // Upload chart Duty
-}
-
-
-  // Auto-login jika sebelumnya sudah login
   if (localStorage.getItem('isLoggedIn') === 'true') {
     firebase.auth().onAuthStateChanged(user => {
       if (user) showDashboard();
