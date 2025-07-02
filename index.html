@@ -16,7 +16,6 @@
       width: 100px; height: 100px; border-radius: 50%; background-color: #3a3a50;
       display: flex; align-items: center; justify-content: center;
       font-size: 20px; font-weight: bold; margin: auto;
-      position: relative;
     }
     .circle-label { font-size: 12px; text-align: center; margin-top: 10px; }
     #dutycycle-value { font-size: 36px; font-weight: bold; text-align: center; color: #17d4fc; }
@@ -36,14 +35,68 @@
   <div class="d-flex justify-content-between align-items-center">
     <div id="menuButton" onclick="toggleMenu()">&#9776;</div>
     <h1 class="text-center flex-grow-1">Monitoring dan Kontrol SMPS</h1>
-    <div id="statusIndicator" title="Status"></div>
+    <div id="statusIndicator" title="Status Sistem"></div>
   </div>
 
-  <!-- Dashboard Content Skipped For Brevity -->
+  <div id="sideMenu">
+    <a href="#" onclick="toggleDarkMode()">Toggle Dark/Light Mode</a>
+    <a href="#" onclick="uploadChartImages()">Simpan Grafik ke Google Drive</a>
+    <a href="https://drive.google.com/drive/folders/1gwEAlqQFIgIyz1QBu0mrw3GC7KQid9TE?usp=sharing" target="_blank">Lihat Histori Grafik</a>
+  </div>
 
+  <div id="dashboard" style="display:none">
+    <div class="row text-center mb-4">
+      <div class="col">
+        <div class="circle-value" id="ac_tegangan_circle"></div>
+        <div class="circle-label">AC Tegangan</div>
+      </div>
+      <div class="col">
+        <div class="circle-value" id="ac_arus_circle"></div>
+        <div class="circle-label">AC Arus</div>
+      </div>
+      <div class="col">
+        <div class="circle-value" id="dc_tegangan_circle"></div>
+        <div class="circle-label">DC Tegangan</div>
+      </div>
+      <div class="col">
+        <div class="circle-value" id="dc_arus_circle"></div>
+        <div class="circle-label">DC Arus</div>
+      </div>
+    </div>
+
+    <div id="dutycycle-value" class="mb-4"></div>
+
+    <div class="mb-4">
+      <h4>Kontrol Relay</h4>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="relay1Switch" onchange="handleSwitch('relay1')">
+        <label class="form-check-label" for="relay1Switch">Relay 1</label>
+      </div>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="relay2Switch" onchange="handleSwitch('relay2')">
+        <label class="form-check-label" for="relay2Switch">Relay 2</label>
+      </div>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="relayAllSwitch" onchange="handleAllSwitch()">
+        <label class="form-check-label" for="relayAllSwitch">Semua Relay</label>
+      </div>
+    </div>
+
+    <div class="mb-5">
+      <h4>Grafik Arus (CC)</h4>
+      <canvas id="chartCC"></canvas>
+    </div>
+    <div class="mb-5">
+      <h4>Grafik Tegangan (CV)</h4>
+      <canvas id="chartCV"></canvas>
+    </div>
+    <div class="mb-5">
+      <h4>Grafik Dutycycle</h4>
+      <canvas id="chartDuty"></canvas>
+    </div>
+  </div>
 </div>
 
-<!-- ... bagian head dan body atas tetap ... -->
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyAQ_U3em2Dw4HhWe0P8bcSN0NV8qT7U5w4",
@@ -64,46 +117,23 @@
     .catch(e => alert("Login gagal: " + e.message));
 
   let lastLoggedTime = 0;
-  const CHART_INTERVAL_MS = 60000; // 1 menit
+  const CHART_INTERVAL_MS = 60000;
   let sensorListener = null;
 
   const labels = [], arusData = [], teganganData = [], dutyData = [];
 
   const chartCC = new Chart(document.getElementById('chartCC'), {
     type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{ label: 'DC Arus (A)', data: arusData, borderColor: '#007bff', fill: false }]
-    }
+    data: { labels: labels, datasets: [{ label: 'DC Arus (A)', data: arusData, borderColor: '#007bff', fill: false }] }
   });
-
   const chartCV = new Chart(document.getElementById('chartCV'), {
     type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{ label: 'DC Tegangan (V)', data: teganganData, borderColor: '#28a745', fill: false }]
-    }
+    data: { labels: labels, datasets: [{ label: 'DC Tegangan (V)', data: teganganData, borderColor: '#28a745', fill: false }] }
   });
-
   const chartDuty = new Chart(document.getElementById('chartDuty'), {
     type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{ label: 'Dutycycle (%)', data: dutyData, borderColor: '#ffc107', fill: false }]
-    }
+    data: { labels: labels, datasets: [{ label: 'Dutycycle (%)', data: dutyData, borderColor: '#ffc107', fill: false }] }
   });
-
-  function addDataToCharts(label, arus, tegangan, duty) {
-    labels.push(label);
-    arusData.push(arus);
-    teganganData.push(tegangan);
-    dutyData.push(duty);
-    chartCC.update(); chartCV.update(); chartDuty.update();
-  }
-
-  function updateCircle(id, value, unit) {
-    document.getElementById(id).textContent = `${value} ${unit}`;
-  }
 
   function showDashboard() {
     document.getElementById("menuButton").style.display = 'block';
@@ -111,22 +141,24 @@
 
     const db = firebase.database();
 
-    // 1. Pantau status ON/OFF sistem
-    db.ref("status").on("value", snap => {
+    // Pantau status ON/OFF
+    db.ref("sistem/status").on("value", snap => {
       const status = snap.val();
       const indicator = document.getElementById("statusIndicator");
+      if (indicator) {
+        indicator.style.backgroundColor = status === "ON" ? "lime" : "red";
+      }
       if (status === "ON") {
-        indicator.style.backgroundColor = "lime";
         enableSensorListener();
       } else {
-        indicator.style.backgroundColor = "red";
         disableSensorListener();
       }
     });
 
-    // 2. Sinkronisasi posisi switch dari Firebase
+    // Sinkronisasi posisi switch
     db.ref('relay').once('value').then((snapshot) => {
       const relayData = snapshot.val();
+      if (!relayData) return;
       document.getElementById('relay1Switch').checked = relayData.relay1 === "ON";
       document.getElementById('relay2Switch').checked = relayData.relay2 === "ON";
       document.getElementById('relayAllSwitch').checked = relayData.all === "ON";
@@ -139,7 +171,6 @@
     sensorListener = db.ref("sensor").on("value", (snapshot) => {
       const data = snapshot.val();
       if (!data) return;
-
       updateCircle('ac_tegangan_circle', data.ac_tegangan, 'V');
       updateCircle('ac_arus_circle', data.ac_arus, 'A');
       updateCircle('dc_tegangan_circle', data.dc_tegangan, 'V');
@@ -166,6 +197,19 @@
       db.ref("sensor").off("value");
       sensorListener = null;
     }
+  }
+
+  function updateCircle(id, value, unit) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = `${value} ${unit}`;
+  }
+
+  function addDataToCharts(label, arus, tegangan, duty) {
+    labels.push(label);
+    arusData.push(arus);
+    teganganData.push(tegangan);
+    dutyData.push(duty);
+    chartCC.update(); chartCV.update(); chartDuty.update();
   }
 
   function handleSwitch(relay) {
@@ -197,7 +241,6 @@
     const chart1 = chartCC.toBase64Image().replace(/^data:image\/png;base64,/, "");
     const chart2 = chartCV.toBase64Image().replace(/^data:image\/png;base64,/, "");
     const chart3 = chartDuty.toBase64Image().replace(/^data:image\/png;base64,/, "");
-
     const endpoint = "https://script.google.com/macros/s/AKfycbxCyJTIH0sAEoWxU5_7p9eurAXHptDx9msJvhLOuOybWiqQLbng29yl3LDyilChiOwCzA/exec";
 
     const upload = (data) => {
