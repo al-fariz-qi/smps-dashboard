@@ -224,26 +224,42 @@
     document.body.classList.toggle('text-dark');
   }
 
-  function uploadChartImages() {
-    const chart1 = chartCC.toBase64Image().replace(/^data:image\/png;base64,/, "");
-    const chart2 = chartCV.toBase64Image().replace(/^data:image\/png;base64,/, "");
-    const chart3 = chartDuty.toBase64Image().replace(/^data:image\/png;base64,/, "");
-    const endpoint = "https://script.google.com/macros/s/AKfycbygDvS6xtJwDbBaroRmT5a_RU61RJTu08xd-50wJhlOSlx1inTOU1lVYFqlC6G6H2UfOQ/exec";
+  async function uploadChartImages() {
+    const endpoint = "https://script.google.com/macros/s/AKfycbwjLLr_XJ0SJPx9nb6sO1xzQ485aIL0GkVhxKcrQd3w9YYiPUqmU1aBROOCaoluDXuc-w/exec";
 
-    const upload = (data) => {
-      fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "image/png" },
-        body: data,
-      })
-      .then(res => res.text())
-      .then(txt => alert("Upload sukses: " + txt))
-      .catch(err => alert("Gagal upload: " + err));
-    };
+    // Ambil gambar base64 dari chart
+    const charts = [
+      { chart: chartCC, name: "Chart Arus (CC)" },
+      { chart: chartCV, name: "Chart Tegangan (CV)" },
+      { chart: chartDuty, name: "Chart Dutycycle" }
+    ];
 
-    upload(chart1);
-    upload(chart2);
-    upload(chart3);
+    for (let i = 0; i < charts.length; i++) {
+      const { chart, name } = charts[i];
+
+      // Validasi data minimal 2 titik agar toBase64Image tidak gagal
+      if (!chart || chart.data.labels.length < 2) {
+        alert(`${name} belum memiliki cukup data untuk diupload (minimal 2 titik).`);
+        continue;
+      }
+
+      const base64 = chart.toBase64Image().replace(/^data:image\/png;base64,/, "");
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "image/png" },
+          body: base64
+        });
+
+        const result = await response.text();
+        alert(`${name} berhasil diupload: ${result}`);
+      } catch (error) {
+        alert(`${name} gagal diupload: ${error}`);
+      }
+
+      // Delay opsional 1 detik agar tidak terlalu cepat berturut-turut
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
 </script>
 </body>
