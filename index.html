@@ -148,16 +148,20 @@
   function updateCircle(id, value, unit) {
     document.getElementById(id).textContent = `${value} ${unit}`;
   }
-
+  
   function login() {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
     firebase.auth().signInWithEmailAndPassword(email, password)
       .then(() => {
+        console.log("Login berhasil");
         localStorage.setItem('isLoggedIn', 'true');
         showDashboard();
       })
-      .catch(e => alert("Login gagal: " + e.message));
+      .catch(e => {
+        console.error("Login gagal:", e.code, e.message);
+        alert("Login gagal: " + e.message);
+      });
   }
 
   function logout() {
