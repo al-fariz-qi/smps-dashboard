@@ -3,199 +3,166 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monitoring SMPS</title>
+  <title>Dashboard SMPS</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f0f4f8;
-      color: #333;
-      margin: 0;
-      padding: 20px;
+    body { background-color: #1e1e2f; color: #fff; font-family: 'Segoe UI', sans-serif; }
+    .card { background-color: #2b2b3c; border: none; border-radius: 15px; }
+    .circle-value {
+      width: 100px; height: 100px; border-radius: 50%; background-color: #3a3a50;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: bold; margin: auto;
+      position: relative;
     }
-    h1 {
-      text-align: center;
-      color: #004080;
-      margin-bottom: 40px;
+    .circle-label {
+      font-size: 12px; text-align: center; margin-top: 10px;
     }
-    .section {
-      background: #ffffff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      margin-bottom: 40px;
+    #dutycycle-value {
+      font-size: 36px; font-weight: bold; text-align: center; color: #17d4fc;
     }
-    .section h2 {
-      color: #0066cc;
-    }
-    button {
-      margin: 5px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      background-color: #007bff;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    p span {
-      font-weight: bold;
-      color: #2a2a2a;
-    }
-    canvas {
-      max-width: 100%;
-    }
+    canvas { max-width: 100%; background-color: #fff; border-radius: 10px; }
+    .form-check-input:checked { background-color: #00c851; border-color: #00c851; }
   </style>
 </head>
 <body>
-  <h1>📊 Monitoring dan Kontrol SMPS</h1>
-  
-  <div class="section">
-    <h2>📡 Data Sensor Realtime</h2>
-    <p>AC Tegangan: <span id="ac_tegangan"></span> V</p>
-    <p>AC Arus: <span id="ac_arus"></span> A</p>
-    <p>DC Tegangan: <span id="dc_tegangan"></span> V</p>
-    <p>DC Arus: <span id="dc_arus"></span> A</p>
-    <p>Dutycycle: <span id="dutycycle"></span> %</p>
+<div class="container py-4">
+  <h1 class="text-center mb-4">Monitoring dan Kontrol SMPS</h1>
+
+  <!-- Login Section -->
+  <div id="loginSection" class="text-center mb-5">
+    <input type="email" id="email" placeholder="Email" class="form-control mb-2" />
+    <input type="password" id="password" placeholder="Password" class="form-control mb-2" />
+    <button class="btn btn-primary" onclick="login()">Login</button>
   </div>
 
-  <div class="section">
-    <h2>⚙️ Kontrol Relay</h2>
-    <button onclick="setRelay('relay1', 'ON')">Relay 1 ON</button>
-    <button onclick="setRelay('relay1', 'OFF')">Relay 1 OFF</button>
-    <button onclick="setRelay('relay2', 'ON')">Relay 2 ON</button>
-    <button onclick="setRelay('relay2', 'OFF')">Relay 2 OFF</button>
-    <button onclick="setRelay('all', 'ON')">Semua Relay ON</button>
-    <button onclick="setRelay('all', 'OFF')">Semua Relay OFF</button>
+  <!-- Main Dashboard -->
+  <div id="dashboard" style="display: none;">
+    <div class="row text-center mb-4">
+      <div class="col">
+        <div class="circle-value" id="ac_tegangan_circle"></div>
+        <div class="circle-label">AC Tegangan</div>
+      </div>
+      <div class="col">
+        <div class="circle-value" id="ac_arus_circle"></div>
+        <div class="circle-label">AC Arus</div>
+      </div>
+      <div class="col">
+        <div class="circle-value" id="dc_tegangan_circle"></div>
+        <div class="circle-label">DC Tegangan</div>
+      </div>
+      <div class="col">
+        <div class="circle-value" id="dc_arus_circle"></div>
+        <div class="circle-label">DC Arus</div>
+      </div>
+    </div>
+
+    <div id="dutycycle-value" class="mb-4"></div>
+
+    <div class="mb-4">
+      <h4>Kontrol Relay</h4>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="relay1Switch" onchange="handleSwitch('relay1')">
+        <label class="form-check-label" for="relay1Switch">Relay 1</label>
+      </div>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="relay2Switch" onchange="handleSwitch('relay2')">
+        <label class="form-check-label" for="relay2Switch">Relay 2</label>
+      </div>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="relayAllSwitch" onchange="handleAllSwitch()">
+        <label class="form-check-label" for="relayAllSwitch">Semua Relay</label>
+      </div>
+    </div>
+
+    <div class="mb-5">
+      <h4>Grafik Monitoring</h4>
+      <canvas id="chartGabungan"></canvas>
+    </div>
   </div>
+</div>
 
-  <div class="section">
-    <h2>📈 Grafik Arus vs Waktu (CC)</h2>
-    <canvas id="chartCC"></canvas>
-  </div>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAQ_U3em2Dw4HhWe0P8bcSN0NV8qT7U5w4",
+    authDomain: "monitoring-kontrol-smps.firebaseapp.com",
+    databaseURL: "https://monitoring-kontrol-smps-default-rtdb.firebaseio.com",
+    projectId: "monitoring-kontrol-smps",
+    storageBucket: "monitoring-kontrol-smps.appspot.com",
+    messagingSenderId: "978830224230",
+    appId: "1:978830224230:web:0354f95aa89862edb4b6a7",
+  };
+  firebase.initializeApp(firebaseConfig);
 
-  <div class="section">
-    <h2>🔋 Grafik Tegangan vs Waktu (CV)</h2>
-    <canvas id="chartCV"></canvas>
-  </div>
+  const labels = [];
+  const arusData = [], teganganData = [], dutyData = [];
 
-  <div class="section">
-    <h2>📉 Gabungan Arus & Tegangan vs Waktu</h2>
-    <canvas id="chartGabungan"></canvas>
-  </div>
+  const chartGabungan = new Chart(document.getElementById('chartGabungan'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'DC Arus (A)', data: arusData, borderColor: '#007bff', fill: false },
+        { label: 'DC Tegangan (V)', data: teganganData, borderColor: '#28a745', fill: false },
+        { label: 'Dutycycle (%)', data: dutyData, borderColor: '#ffc107', fill: false }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyAQ_U3em2Dw4HhWe0P8bcSN0NV8qT7U5w4",
-      authDomain: "monitoring-kontrol-smps.firebaseapp.com",
-      databaseURL: "https://monitoring-kontrol-smps-default-rtdb.firebaseio.com",
-      projectId: "monitoring-kontrol-smps",
-      storageBucket: "monitoring-kontrol-smps.firebasestorage.app",
-      messagingSenderId: "978830224230",
-      appId: "1:978830224230:web:0354f95aa89862edb4b6a7",
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    const sensorRef = db.ref('sensor');
-    sensorRef.on('value', (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
-      document.getElementById('ac_tegangan').textContent = data.ac_tegangan;
-      document.getElementById('ac_arus').textContent = data.ac_arus;
-      document.getElementById('dc_tegangan').textContent = data.dc_tegangan;
-      document.getElementById('dc_arus').textContent = data.dc_arus;
-      document.getElementById('dutycycle').textContent = data.dutycycle;
-
-      addDataToCharts(new Date().toLocaleTimeString(), data.dc_arus, data.dc_tegangan);
-    });
-
-    function setRelay(relay, value) {
-      firebase.database().ref('relay/' + relay).set(value);
+  function addDataToCharts(label, arus, tegangan, duty) {
+    if (labels.length > 30) {
+      labels.shift(); arusData.shift(); teganganData.shift(); dutyData.shift();
     }
+    labels.push(label);
+    arusData.push(arus);
+    teganganData.push(tegangan);
+    dutyData.push(duty);
+    chartGabungan.update();
+  }
 
-    const labels = [];
-    const arusData = [];
-    const teganganData = [];
+  function updateCircle(id, value, unit) {
+    document.getElementById(id).textContent = `${value} ${unit}`;
+  }
 
-    const chartCC = new Chart(document.getElementById('chartCC'), {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'DC Arus (A)',
-          data: arusData,
-          borderColor: '#007bff',
-          backgroundColor: 'rgba(0, 123, 255, 0.1)',
-          fill: true,
-          tension: 0.4
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false }
-    });
+  function login() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    firebase.auth().signInWithEmailAndPassword(email, password)
+      .then(() => {
+        document.getElementById("loginSection").style.display = 'none';
+        document.getElementById("dashboard").style.display = 'block';
+        const db = firebase.database();
+        db.ref('sensor').on('value', (snapshot) => {
+          const data = snapshot.val();
+          updateCircle('ac_tegangan_circle', data.ac_tegangan, 'V');
+          updateCircle('ac_arus_circle', data.ac_arus, 'A');
+          updateCircle('dc_tegangan_circle', data.dc_tegangan, 'V');
+          updateCircle('dc_arus_circle', data.dc_arus, 'A');
+          document.getElementById('dutycycle-value').textContent = `Dutycycle: ${data.dutycycle}%`;
+          addDataToCharts(new Date().toLocaleTimeString(), data.dc_arus, data.dc_tegangan, data.dutycycle);
+        });
+      })
+      .catch(e => alert("Login gagal: " + e.message));
+  }
 
-    const chartCV = new Chart(document.getElementById('chartCV'), {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'DC Tegangan (V)',
-          data: teganganData,
-          borderColor: '#28a745',
-          backgroundColor: 'rgba(40, 167, 69, 0.1)',
-          fill: true,
-          tension: 0.4
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false }
-    });
+  function handleSwitch(relay) {
+    const status = document.getElementById(`${relay}Switch`).checked ? "ON" : "OFF";
+    firebase.database().ref(`relay/${relay}`).set(status);
+    document.getElementById('relayAllSwitch').checked = false;
+  }
 
-    const chartGabungan = new Chart(document.getElementById('chartGabungan'), {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: 'DC Arus (A)',
-            data: arusData,
-            borderColor: '#007bff',
-            backgroundColor: 'rgba(0, 123, 255, 0.05)',
-            fill: true,
-            tension: 0.4
-          },
-          {
-            label: 'DC Tegangan (V)',
-            data: teganganData,
-            borderColor: '#28a745',
-            backgroundColor: 'rgba(40, 167, 69, 0.05)',
-            fill: true,
-            tension: 0.4
-          }
-        ]
-      },
-      options: { responsive: true, maintainAspectRatio: false }
-    });
-
-    function addDataToCharts(label, arus, tegangan) {
-      if (labels.length > 30) {
-        labels.shift();
-        arusData.shift();
-        teganganData.shift();
-      }
-      labels.push(label);
-      arusData.push(arus);
-      teganganData.push(tegangan);
-      chartCC.update();
-      chartCV.update();
-      chartGabungan.update();
-    }
-  </script>
+  function handleAllSwitch() {
+    const isOn = document.getElementById('relayAllSwitch').checked;
+    firebase.database().ref('relay/all').set(isOn ? "ON" : "OFF");
+    firebase.database().ref('relay/relay1').set("OFF");
+    firebase.database().ref('relay/relay2').set("OFF");
+    document.getElementById('relay1Switch').checked = false;
+    document.getElementById('relay2Switch').checked = false;
+  }
+</script>
 </body>
 </html>
