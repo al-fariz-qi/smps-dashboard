@@ -146,32 +146,35 @@
       document.getElementById('relayAllSwitch').checked = relayData.all === "ON";
     });
   }
-
+  
   function enableSensorListener() {
-    if (sensorListener) return;
+    if (sensorListener) return; // hindari dobel timer
     const db = firebase.database();
-    sensorListener = db.ref("sensor").on("value", snapshot => {
-      const data = snapshot.val();
-      if (!data) return;
-      updateCircle('ac_tegangan_circle', data.ac_tegangan, 'V');
-      updateCircle('ac_arus_circle', data.ac_arus, 'A');
-      updateCircle('dc_tegangan_circle', data.dc_tegangan, 'V');
-      updateCircle('dc_arus_circle', data.dc_arus, 'A');
-      document.getElementById('dutycycle-value').textContent = `Dutycycle: ${data.dutycycle}%`;
-
-      const now = new Date();
-      if (now.getTime() - lastLoggedTime >= CHART_INTERVAL_MS) {
-        lastLoggedTime = now.getTime();
+    sensorListener = setInterval(() => {
+      db.ref("sensor").once("value").then(snapshot => {
+        const data = snapshot.val();
+        if (!data) return;
+        updateCircle('ac_tegangan_circle', data.ac_tegangan, 'V');
+        updateCircle('ac_arus_circle', data.ac_arus, 'A');
+        updateCircle('dc_tegangan_circle', data.dc_tegangan, 'V');
+        updateCircle('dc_arus_circle', data.dc_arus, 'A');
+        document.getElementById('dutycycle-value').textContent = `Dutycycle: ${data.dutycycle}%`;
+        
+        const now = new Date();
         const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
         const arus = parseFloat(data.dc_arus);
         const tegangan = parseFloat(data.dc_tegangan);
         const duty = parseFloat(data.dutycycle);
+        
         if (!isNaN(arus) && !isNaN(tegangan) && !isNaN(duty)) {
           addDataToCharts(timeLabel, arus, tegangan, duty);
+          console.log("Grafik diupdate:", timeLabel);
         }
-      }
-    });
+      });
+    }, CHART_INTERVAL_MS);
   }
+
 
   function disableSensorListener() {
     if (sensorListener) {
