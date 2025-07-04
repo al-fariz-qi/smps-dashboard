@@ -11,7 +11,6 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { background-color: #1e1e2f; color: #fff; font-family: 'Segoe UI', sans-serif; }
-    .card { background-color: #2b2b3c; border: none; border-radius: 15px; }
     .circle-value {
       width: 100px; height: 100px; border-radius: 50%; background-color: #3a3a50;
       display: flex; align-items: center; justify-content: center;
@@ -19,7 +18,7 @@
     }
     .circle-label { font-size: 12px; text-align: center; margin-top: 10px; }
     #dutycycle-value { font-size: 36px; font-weight: bold; text-align: center; color: #17d4fc; }
-    canvas { width: 100%; max-height: 300px; background-color: #fff; border-radius: 10px; }
+    canvas { width: 100%; max-height: 350px; background-color: #fff; border-radius: 10px; }
     .form-check-input:checked { background-color: #00c851; border-color: #00c851; }
     #menuButton { cursor: pointer; font-size: 24px; margin-bottom: 10px; }
     #sideMenu { display: none; background: #2b2b3c; border-radius: 10px; padding: 10px; position: absolute; top: 50px; left: 10px; z-index: 999; }
@@ -70,9 +69,10 @@
       </div>
     </div>
 
-    <div class="mb-5"><h4>Grafik Arus (CC)</h4><canvas id="chartCC"></canvas></div>
-    <div class="mb-5"><h4>Grafik Tegangan (CV)</h4><canvas id="chartCV"></canvas></div>
-    <div class="mb-5"><h4>Grafik Dutycycle</h4><canvas id="chartDuty"></canvas></div>
+    <div class="mb-5">
+      <h4>Grafik Gabungan</h4>
+      <canvas id="chartGabungan"></canvas>
+    </div>
   </div>
 </div>
 
@@ -97,17 +97,65 @@
 
   const labels = [], arusData = [], teganganData = [], dutyData = [];
 
-  const chartCC = new Chart(document.getElementById('chartCC'), {
+  const chartGabungan = new Chart(document.getElementById('chartGabungan'), {
     type: 'line',
-    data: { labels: labels, datasets: [{ label: 'DC Arus (A)', data: arusData, borderColor: '#007bff', fill: false }] }
-  });
-  const chartCV = new Chart(document.getElementById('chartCV'), {
-    type: 'line',
-    data: { labels: labels, datasets: [{ label: 'DC Tegangan (V)', data: teganganData, borderColor: '#28a745', fill: false }] }
-  });
-  const chartDuty = new Chart(document.getElementById('chartDuty'), {
-    type: 'line',
-    data: { labels: labels, datasets: [{ label: 'Dutycycle (%)', data: dutyData, borderColor: '#ffc107', fill: false }] }
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'DC Arus (A)',
+          data: arusData,
+          borderColor: '#ff6384',
+          fill: false,
+          yAxisID: 'y1'
+        },
+        {
+          label: 'DC Tegangan (V)',
+          data: teganganData,
+          borderColor: '#36a2eb',
+          fill: false,
+          yAxisID: 'y2'
+        },
+        {
+          label: 'Dutycycle (%)',
+          data: dutyData,
+          borderColor: '#ffce56',
+          fill: false,
+          yAxisID: 'y3'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      stacked: false,
+      plugins: {
+        legend: { position: 'bottom' }
+      },
+      scales: {
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: { display: true, text: 'Arus (A)' }
+        },
+        y2: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: { display: true, text: 'Tegangan (V)' },
+          grid: { drawOnChartArea: false }
+        },
+        y3: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          offset: true,
+          title: { display: true, text: 'Duty (%)' },
+          grid: { drawOnChartArea: false }
+        }
+      }
+    }
   });
 
   firebase.auth().signInWithEmailAndPassword(AUTO_EMAIL, AUTO_PASS)
@@ -140,7 +188,6 @@
   function enableSensorListener() {
     const db = firebase.database();
 
-    // Realtime listener untuk data lingkaran
     if (!sensorListener) {
       sensorListener = db.ref("sensor").on("value", snapshot => {
         const data = snapshot.val();
@@ -153,7 +200,6 @@
       });
     }
 
-    // Interval grafik 1 menit
     if (!graphInterval) {
       graphInterval = setInterval(() => {
         db.ref("sensor").once("value").then(snapshot => {
@@ -196,7 +242,7 @@
     arusData.push(arus);
     teganganData.push(tegangan);
     dutyData.push(duty);
-    chartCC.update(); chartCV.update(); chartDuty.update();
+    chartGabungan.update();
   }
 
   function handleSwitch(relay) {
@@ -225,40 +271,25 @@
   }
 
   async function uploadChartImages() {
-    const endpoint = "https://script.google.com/macros/s/AKfycbwjLLr_XJ0SJPx9nb6sO1xzQ485aIL0GkVhxKcrQd3w9YYiPUqmU1aBROOCaoluDXuc-w/exec";
+    const endpoint = "https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_ID/exec";
 
-    // Ambil gambar base64 dari chart
-    const charts = [
-      { chart: chartCC, name: "Chart Arus (CC)" },
-      { chart: chartCV, name: "Chart Tegangan (CV)" },
-      { chart: chartDuty, name: "Chart Dutycycle" }
-    ];
+    if (chartGabungan.data.labels.length < 2) {
+      alert("Grafik belum memiliki cukup data untuk diupload (minimal 2 titik).");
+      return;
+    }
 
-    for (let i = 0; i < charts.length; i++) {
-      const { chart, name } = charts[i];
+    const base64 = chartGabungan.toBase64Image().replace(/^data:image\/png;base64,/, "");
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "image/png" },
+        body: base64
+      });
 
-      // Validasi data minimal 2 titik agar toBase64Image tidak gagal
-      if (!chart || chart.data.labels.length < 2) {
-        alert(`${name} belum memiliki cukup data untuk diupload (minimal 2 titik).`);
-        continue;
-      }
-
-      const base64 = chart.toBase64Image().replace(/^data:image\/png;base64,/, "");
-      try {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "image/png" },
-          body: base64
-        });
-
-        const result = await response.text();
-        alert(`${name} berhasil diupload: ${result}`);
-      } catch (error) {
-        alert(`${name} gagal diupload: ${error}`);
-      }
-
-      // Delay opsional 1 detik agar tidak terlalu cepat berturut-turut
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await response.text();
+      alert(`Grafik berhasil diupload: ${result}`);
+    } catch (error) {
+      alert(`Gagal upload grafik: ${error}`);
     }
   }
 </script>
