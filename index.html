@@ -106,53 +106,35 @@
           label: 'DC Arus (A)',
           data: arusData,
           borderColor: '#ff6384',
-          fill: false,
-          yAxisID: 'y1'
+          fill: false
         },
         {
           label: 'DC Tegangan (V)',
           data: teganganData,
           borderColor: '#36a2eb',
-          fill: false,
-          yAxisID: 'y2'
+          fill: false
         },
         {
           label: 'Dutycycle (%)',
           data: dutyData,
           borderColor: '#ffce56',
-          fill: false,
-          yAxisID: 'y3'
+          fill: false
         }
       ]
     },
     options: {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
-      stacked: false,
       plugins: {
         legend: { position: 'bottom' }
       },
       scales: {
-        y1: {
-          type: 'linear',
-          display: true,
-          position: 'left',
-          title: { display: true, text: 'Arus (A)' }
+        x: {
+          title: { display: true, text: 'Waktu' }
         },
-        y2: {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          title: { display: true, text: 'Tegangan (V)' },
-          grid: { drawOnChartArea: false }
-        },
-        y3: {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          offset: true,
-          title: { display: true, text: 'Duty (%)' },
-          grid: { drawOnChartArea: false }
+        y: {
+          title: { display: true, text: 'Nilai' },
+          beginAtZero: true
         }
       }
     }
