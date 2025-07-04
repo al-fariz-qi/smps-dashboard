@@ -18,12 +18,11 @@
     }
     .circle-label { font-size: 12px; text-align: center; margin-top: 10px; }
     #dutycycle-value { font-size: 36px; font-weight: bold; text-align: center; color: #17d4fc; }
-    canvas { width: 100%; max-height: 350px; background-color: #fff; border-radius: 10px; }
+    canvas { width: 100%; max-height: 300px; background-color: #fff; border-radius: 10px; }
     .form-check-input:checked { background-color: #00c851; border-color: #00c851; }
     #menuButton { cursor: pointer; font-size: 24px; margin-bottom: 10px; }
     #sideMenu { display: none; background: #2b2b3c; border-radius: 10px; padding: 10px; position: absolute; top: 50px; left: 10px; z-index: 999; }
     #sideMenu a { display: block; color: #fff; margin: 5px 0; text-decoration: none; }
-    #sideMenu a:hover { text-decoration: underline; }
     #statusIndicator {
       width: 15px; height: 15px; border-radius: 50%; display: inline-block; margin-left: 10px;
     }
@@ -53,25 +52,15 @@
 
     <div id="dutycycle-value" class="mb-4"></div>
 
-    <div class="mb-4">
-      <h4>Kontrol Relay</h4>
-      <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="relay1Switch" onchange="handleSwitch('relay1')">
-        <label class="form-check-label" for="relay1Switch">Relay 1</label>
-      </div>
-      <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="relay2Switch" onchange="handleSwitch('relay2')">
-        <label class="form-check-label" for="relay2Switch">Relay 2</label>
-      </div>
-      <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="relayAllSwitch" onchange="handleAllSwitch()">
-        <label class="form-check-label" for="relayAllSwitch">Semua Relay</label>
-      </div>
+    <div class="mb-3">
+      <label><input type="checkbox" id="showArus" checked> Tampilkan Arus (A)</label>
+      <label class="ms-3"><input type="checkbox" id="showTegangan" checked> Tampilkan Tegangan (V)</label>
+      <label class="ms-3"><input type="checkbox" id="showDuty" checked> Tampilkan Dutycycle (%)</label>
     </div>
 
     <div class="mb-5">
       <h4>Grafik Gabungan</h4>
-      <canvas id="chartGabungan"></canvas>
+      <canvas id="combinedChart"></canvas>
     </div>
   </div>
 </div>
@@ -97,65 +86,39 @@
 
   const labels = [], arusData = [], teganganData = [], dutyData = [];
 
-  const chartGabungan = new Chart(document.getElementById('chartGabungan'), {
+  const combinedChart = new Chart(document.getElementById('combinedChart').getContext('2d'), {
     type: 'line',
     data: {
       labels: labels,
       datasets: [
-        {
-          label: 'DC Arus (A)',
-          data: arusData,
-          borderColor: '#ff6384',
-          fill: false,
-          yAxisID: 'y1'
-        },
-        {
-          label: 'DC Tegangan (V)',
-          data: teganganData,
-          borderColor: '#36a2eb',
-          fill: false,
-          yAxisID: 'y2'
-        },
-        {
-          label: 'Dutycycle (%)',
-          data: dutyData,
-          borderColor: '#ffce56',
-          fill: false,
-          yAxisID: 'y3'
-        }
+        { label: 'Arus (A)', data: arusData, borderColor: '#ff6384', fill: false },
+        { label: 'Tegangan (V)', data: teganganData, borderColor: '#36a2eb', fill: false },
+        { label: 'Dutycycle (%)', data: dutyData, borderColor: '#ffce56', fill: false }
       ]
     },
     options: {
       responsive: true,
-      interaction: { mode: 'index', intersect: false },
-      stacked: false,
       plugins: {
-        legend: { position: 'bottom' }
+        legend: { display: true, position: 'bottom' }
       },
       scales: {
-        y1: {
-          type: 'linear',
-          display: true,
-          position: 'left',
-          title: { display: true, text: 'Arus (A)' }
-        },
-        y2: {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          title: { display: true, text: 'Tegangan (V)' },
-          grid: { drawOnChartArea: false }
-        },
-        y3: {
-          type: 'linear',
-          display: true,
-          position: 'right',
-          offset: true,
-          title: { display: true, text: 'Duty (%)' },
-          grid: { drawOnChartArea: false }
-        }
+        y: { beginAtZero: true, title: { display: true, text: 'Nilai' }, position: 'left' },
+        x: { title: { display: true, text: 'Waktu' } }
       }
     }
+  });
+
+  document.getElementById('showArus').addEventListener('change', e => {
+    combinedChart.data.datasets[0].hidden = !e.target.checked;
+    combinedChart.update();
+  });
+  document.getElementById('showTegangan').addEventListener('change', e => {
+    combinedChart.data.datasets[1].hidden = !e.target.checked;
+    combinedChart.update();
+  });
+  document.getElementById('showDuty').addEventListener('change', e => {
+    combinedChart.data.datasets[2].hidden = !e.target.checked;
+    combinedChart.update();
   });
 
   firebase.auth().signInWithEmailAndPassword(AUTO_EMAIL, AUTO_PASS)
@@ -165,29 +128,18 @@
   function showDashboard() {
     document.getElementById("menuButton").style.display = 'block';
     document.getElementById("dashboard").style.display = 'block';
-
     const db = firebase.database();
 
     db.ref("sistem/status").on("value", snap => {
       const status = snap.val();
       const indicator = document.getElementById("statusIndicator");
-      if (indicator) indicator.style.backgroundColor = status === "ON" ? "lime" : "red";
-      if (status === "ON") enableSensorListener();
-      else disableSensorListener();
-    });
-
-    db.ref('relay').once('value').then(snapshot => {
-      const relayData = snapshot.val();
-      if (!relayData) return;
-      document.getElementById('relay1Switch').checked = relayData.relay1 === "ON";
-      document.getElementById('relay2Switch').checked = relayData.relay2 === "ON";
-      document.getElementById('relayAllSwitch').checked = relayData.all === "ON";
+      indicator.style.backgroundColor = status === "ON" ? "lime" : "red";
+      status === "ON" ? enableSensorListener() : disableSensorListener();
     });
   }
 
   function enableSensorListener() {
     const db = firebase.database();
-
     if (!sensorListener) {
       sensorListener = db.ref("sensor").on("value", snapshot => {
         const data = snapshot.val();
@@ -208,13 +160,16 @@
 
           const now = new Date();
           const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
           const arus = parseFloat(data.dc_arus);
           const tegangan = parseFloat(data.dc_tegangan);
           const duty = parseFloat(data.dutycycle);
 
           if (!isNaN(arus) && !isNaN(tegangan) && !isNaN(duty)) {
-            addDataToCharts(timeLabel, arus, tegangan, duty);
+            labels.push(timeLabel);
+            arusData.push(arus);
+            teganganData.push(tegangan);
+            dutyData.push(duty);
+            combinedChart.update();
           }
         });
       }, CHART_INTERVAL_MS);
@@ -237,29 +192,6 @@
     if (el) el.textContent = `${value} ${unit}`;
   }
 
-  function addDataToCharts(label, arus, tegangan, duty) {
-    labels.push(label);
-    arusData.push(arus);
-    teganganData.push(tegangan);
-    dutyData.push(duty);
-    chartGabungan.update();
-  }
-
-  function handleSwitch(relay) {
-    const status = document.getElementById(`${relay}Switch`).checked ? "ON" : "OFF";
-    firebase.database().ref(`relay/${relay}`).set(status);
-    document.getElementById('relayAllSwitch').checked = false;
-  }
-
-  function handleAllSwitch() {
-    const isOn = document.getElementById('relayAllSwitch').checked;
-    firebase.database().ref('relay/all').set(isOn ? "ON" : "OFF");
-    firebase.database().ref('relay/relay1').set("OFF");
-    firebase.database().ref('relay/relay2').set("OFF");
-    document.getElementById('relay1Switch').checked = false;
-    document.getElementById('relay2Switch').checked = false;
-  }
-
   function toggleMenu() {
     const menu = document.getElementById('sideMenu');
     menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
@@ -268,29 +200,6 @@
   function toggleDarkMode() {
     document.body.classList.toggle('bg-light');
     document.body.classList.toggle('text-dark');
-  }
-
-  async function uploadChartImages() {
-    const endpoint = "https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_ID/exec";
-
-    if (chartGabungan.data.labels.length < 2) {
-      alert("Grafik belum memiliki cukup data untuk diupload (minimal 2 titik).");
-      return;
-    }
-
-    const base64 = chartGabungan.toBase64Image().replace(/^data:image\/png;base64,/, "");
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "image/png" },
-        body: base64
-      });
-
-      const result = await response.text();
-      alert(`Grafik berhasil diupload: ${result}`);
-    } catch (error) {
-      alert(`Gagal upload grafik: ${error}`);
-    }
   }
 </script>
 </body>
