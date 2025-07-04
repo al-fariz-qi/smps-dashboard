@@ -8,19 +8,17 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-gauge@0.3.0/dist/chartjs-chart-gauge.min.js"></script>
-  <script>
-    const { GaugeController, Needle } = Chart.registry.controllers;
-    const { ArcElement, LinearScale, Tooltip, Legend } = Chart.registry.elements;
-    Chart.register(GaugeController, Needle, ArcElement, LinearScale, Tooltip, Legend);
-  </script>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { background-color: #1e1e2f; color: #fff; font-family: 'Segoe UI', sans-serif; }
-    .circle-label { font-size: 12px; text-align: center; margin-top: 5px; }
+    .circle-value {
+      width: 100px; height: 100px; border-radius: 50%; background-color: #3a3a50;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: bold; margin: auto;
+    }
+    .circle-label { font-size: 12px; text-align: center; margin-top: 10px; }
     #dutycycle-value { font-size: 36px; font-weight: bold; text-align: center; color: #17d4fc; }
     canvas { width: 100%; max-height: 350px; background-color: #fff; border-radius: 10px; }
-    .gauge-container canvas { max-width: 100px; margin: auto; display: block; }
     .form-check-input:checked { background-color: #00c851; border-color: #00c851; }
     #menuButton { cursor: pointer; font-size: 24px; margin-bottom: 10px; }
     #sideMenu { display: none; background: #2b2b3c; border-radius: 10px; padding: 10px; position: absolute; top: 50px; left: 10px; z-index: 999; }
@@ -47,22 +45,10 @@
 
   <div id="dashboard" style="display:none">
     <div class="row text-center mb-4">
-      <div class="col gauge-container">
-        <canvas id="ac_tegangan_gauge"></canvas>
-        <div class="circle-label">AC Tegangan</div>
-      </div>
-      <div class="col gauge-container">
-        <canvas id="ac_arus_gauge"></canvas>
-        <div class="circle-label">AC Arus</div>
-      </div>
-      <div class="col gauge-container">
-        <canvas id="dc_tegangan_gauge"></canvas>
-        <div class="circle-label">DC Tegangan</div>
-      </div>
-      <div class="col gauge-container">
-        <canvas id="dc_arus_gauge"></canvas>
-        <div class="circle-label">DC Arus</div>
-      </div>
+      <div class="col"><div class="circle-value" id="ac_tegangan_circle"></div><div class="circle-label">AC Tegangan</div></div>
+      <div class="col"><div class="circle-value" id="ac_arus_circle"></div><div class="circle-label">AC Arus</div></div>
+      <div class="col"><div class="circle-value" id="dc_tegangan_circle"></div><div class="circle-label">DC Tegangan</div></div>
+      <div class="col"><div class="circle-value" id="dc_arus_circle"></div><div class="circle-label">DC Arus</div></div>
     </div>
 
     <div id="dutycycle-value" class="mb-4"></div>
@@ -154,36 +140,6 @@
     }
   });
 
-  // ==== Gauge Config
-  function createGauge(id, max, unit) {
-    return new Chart(document.getElementById(id), {
-      type: 'gauge',
-      data: {
-        datasets: [{
-          value: 0,
-          minValue: 0,
-          data: [max * 0.33, max * 0.66, max],
-          backgroundColor: ['#33cc33', '#ffcc00', '#ff3300']
-        }]
-      },
-      options: {
-        responsive: true,
-        needle: { radiusPercentage: 2, widthPercentage: 3.2, lengthPercentage: 80, color: 'black' },
-        valueLabel: {
-          display: true,
-          formatter: (value) => `${value.toFixed(1)} ${unit}`,
-          color: '#fff',
-          fontSize: 14
-        }
-      }
-    });
-  }
-
-  const acTeganganGauge = createGauge('ac_tegangan_gauge', 250, 'V');
-  const acArusGauge = createGauge('ac_arus_gauge', 10, 'A');
-  const dcTeganganGauge = createGauge('dc_tegangan_gauge', 30, 'V');
-  const dcArusGauge = createGauge('dc_arus_gauge', 10, 'A');
-
   firebase.auth().signInWithEmailAndPassword(AUTO_EMAIL, AUTO_PASS)
     .then(() => showDashboard())
     .catch(e => alert("Login gagal: " + e.message));
@@ -218,20 +174,11 @@
       sensorListener = db.ref("sensor").on("value", snapshot => {
         const data = snapshot.val();
         if (!data) return;
-
-        acTeganganGauge.data.datasets[0].value = parseFloat(data.ac_tegangan);
-        acTeganganGauge.update();
-
-        acArusGauge.data.datasets[0].value = parseFloat(data.ac_arus);
-        acArusGauge.update();
-
-        dcTeganganGauge.data.datasets[0].value = parseFloat(data.dc_tegangan);
-        dcTeganganGauge.update();
-
-        dcArusGauge.data.datasets[0].value = parseFloat(data.dc_arus);
-        dcArusGauge.update();
-
-        document.getElementById('dutycycle-value').textContent = `Dutycycle: ${data.dutycycle}%`;
+        updateCircle('ac_tegangan_circle', data.ac_tegangan, 'V');
+        updateCircle('ac_arus_circle', data.ac_arus, 'A');
+        updateCircle('dc_tegangan_circle', data.dc_tegangan, 'V');
+        updateCircle('dc_arus_circle', data.dc_arus, 'A');
+        document.getElementById('dutycycle-value').textContent = Dutycycle: ${data.dutycycle}%;
       });
     }
 
@@ -267,6 +214,11 @@
     }
   }
 
+  function updateCircle(id, value, unit) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = ${value} ${unit};
+  }
+
   function addDataToCharts(label, arus, tegangan, duty) {
     labels.push(label);
     arusData.push(arus);
@@ -276,8 +228,8 @@
   }
 
   function handleSwitch(relay) {
-    const status = document.getElementById(`${relay}Switch`).checked ? "ON" : "OFF";
-    firebase.database().ref(`relay/${relay}`).set(status);
+    const status = document.getElementById(${relay}Switch).checked ? "ON" : "OFF";
+    firebase.database().ref(relay/${relay}).set(status);
     document.getElementById('relayAllSwitch').checked = false;
   }
 
@@ -300,34 +252,49 @@
     document.body.classList.toggle('text-dark');
   }
 
-  function uploadChartImages() {
-    const endpoint = "https://script.google.com/macros/s/AKfycbx77EcKv2GloyP4SWb83gr9UYdxoAAuSO4Nwoo8OoTBwI6JDrETNsjTJ27K1NTZoegd5Q/exec";
-    if (chartGabungan.data.labels.length < 2) {
-      alert("Grafik belum memiliki cukup data untuk diupload (minimal 2 titik).");
-      return;
-    }
-
-    const canvas = chartGabungan.canvas;
+  function getChartWithWhiteBackground(chart) {
+    const canvas = chart.canvas;
     const ctx = canvas.getContext("2d");
 
+    // Buat canvas sementara
     const tempCanvas = document.createElement("canvas");
     tempCanvas.width = canvas.width;
     tempCanvas.height = canvas.height;
     const tempCtx = tempCanvas.getContext("2d");
 
+    // Gambar latar belakang putih
     tempCtx.fillStyle = "#ffffff";
     tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+    // Gambar chart asli di atasnya
     tempCtx.drawImage(canvas, 0, 0);
 
-    const base64 = tempCanvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+    // Ambil data base64 tanpa header
+    return tempCanvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+  }
 
-    fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: base64
-    }).then(res => res.text())
-      .then(result => alert(`Grafik berhasil diupload: ${result}`))
-      .catch(error => alert(`Gagal upload grafik: ${error}`));
+  async function uploadChartImages() {
+    const endpoint = "https://script.google.com/macros/s/AKfycbx77EcKv2GloyP4SWb83gr9UYdxoAAuSO4Nwoo8OoTBwI6JDrETNsjTJ27K1NTZoegd5Q/exec";
+
+    if (chartGabungan.data.labels.length < 2) {
+      alert("Grafik belum memiliki cukup data untuk diupload (minimal 2 titik).");
+      return;
+    }
+
+    const base64 = getChartWithWhiteBackground(chartGabungan); // GUNAKAN fungsi yang memastikan background putih
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: base64
+      });
+
+      const result = await response.text();
+      alert(Grafik berhasil diupload: ${result});
+    } catch (error) {
+      alert(Gagal upload grafik: ${error});
+    }
   }
 </script>
 </body>
