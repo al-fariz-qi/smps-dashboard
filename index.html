@@ -252,6 +252,27 @@
     document.body.classList.toggle('text-dark');
   }
 
+  function getChartWithWhiteBackground(chart) {
+    const canvas = chart.canvas;
+    const ctx = canvas.getContext("2d");
+
+    // Buat canvas sementara
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext("2d");
+
+    // Gambar latar belakang putih
+    tempCtx.fillStyle = "#ffffff";
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+    // Gambar chart asli di atasnya
+    tempCtx.drawImage(canvas, 0, 0);
+
+    // Ambil data base64 tanpa header
+    return tempCanvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+  }
+
   async function uploadChartImages() {
     const endpoint = "https://script.google.com/macros/s/AKfycbx77EcKv2GloyP4SWb83gr9UYdxoAAuSO4Nwoo8OoTBwI6JDrETNsjTJ27K1NTZoegd5Q/exec";
 
@@ -260,7 +281,8 @@
       return;
     }
 
-    const base64 = chartGabungan.toBase64Image().replace(/^data:image\/png;base64,/, "");
+    const base64 = getChartWithWhiteBackground(chartGabungan); // GUNAKAN fungsi yang memastikan background putih
+
     try {
       const response = await fetch(endpoint, {
         method: "POST",
